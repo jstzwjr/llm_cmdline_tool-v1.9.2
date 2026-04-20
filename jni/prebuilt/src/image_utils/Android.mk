@@ -1,0 +1,15 @@
+LOCAL_PATH := $(call my-dir)
+USER_LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES)
+
+include $(CLEAR_VARS)
+OPENCV_INSTALL_MODULES:=on
+include $(LOCAL_PATH)/../../third_party/misc/OpenCV-android-sdk/sdk/native/jni/OpenCV.mk
+LOCAL_MODULE := image_utils
+LOCAL_SRC_FILES := image_transform.cpp
+LOCAL_C_INCLUDES += $(USER_LOCAL_C_INCLUDES)
+LOCAL_EXPORT_C_INCLUDES += $(OPENCV_LOCAL_C_INCLUDES)
+LOCAL_CPPFLAGS += -fexceptions
+LOCAL_LDFLAGS :=
+include $(BUILD_STATIC_LIBRARY)
+
+LOCAL_C_INCLUDES := $(USER_LOCAL_C_INCLUDES)

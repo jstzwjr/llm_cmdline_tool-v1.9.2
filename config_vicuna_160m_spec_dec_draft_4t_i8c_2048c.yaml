@@ -1,0 +1,37 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  genTokenBatchSize: 4
+  cacheSize: 2048
+  hiddenSize: 768
+  numHead: 12
+  numLayer: 12
+  maxTokenLength: 2048
+  rotEmbBase: 10000
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT8
+  maskType: INT16
+  rotEmbType: INT16
+  modelOutputQuantScale: 0.0011284364154562354  # Need to update according to user's PTQ result
+
+runtimeOptions:
+  startTokenIndex: 0
+
+  # Special tokens that determines the inference behavior.
+  specialTokens:
+    bosId: 1      # BOS token Id, required to set.
+    eosId: 2      # EOS token Id, required to set.
+    addBos: true  # Prepend BOS token during tokenization. Default to false if not set.
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/vicuna_7b/tokenizer.model
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/vicuna_160m/embedding_vicuna_160m.bin
+
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/vicuna_160m/vicuna_160m_sym4W_sym16A_Overall_hessian_i8c_12layer_128t2048c_0.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/vicuna_160m/vicuna_160m_sym4W_sym16A_Overall_hessian_i8c_12layer_4t2048c_0.dla
+  cachePaths: # One cache file per dla chunk, where each file is a concatenation of all caches in a chunk.

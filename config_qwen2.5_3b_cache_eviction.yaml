@@ -1,0 +1,46 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 2048
+  hiddenSize: 2048
+  numHead: 16
+  numLayer: 36
+  maxTokenLength: 32768
+  numAttnOutputs: 36
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT8
+  maskType: INT16
+  rotEmbType: INT16
+  rotEmbBase: 1000000.0
+
+runtimeOptions:
+  startTokenIndex: 0
+  specialTokens:
+    bosId: 151644
+    eosId: 151645
+    addBos: false # Default to false if not set
+    stopToken:    # Either a list or a value. Default to eosId if left blank
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Qwen2.5-3B-Instruct_merges.txt
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Qwen2.5-3B-Instruct_vocab.txt
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Qwen2.5-3B-Instruct_added_tokens.yaml
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/embedding_Qwen2.5-3B-Instruct_int16.bin
+
+  # NOTE: We can use smaller cache size for prompt and larger cache size for gen mode, for example:
+  #  dlaPaths:
+  #    128t2048c:
+  #      - /path/to/128t2048c.dla
+  #    1t2560c:
+  #      - /path/to/1t2560c.dla
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Qwen2.5-3B-Instruct_SCRB_8192_return_attn_weights_mask10k_sinkRoPE_asym4W_sym16A_Overall_hessian_i8c_cc_sinkRoPE_36layer_128t2048c_sinkRoPE_0.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Qwen2.5-3B-Instruct_SCRB_8192_return_attn_weights_mask10k_sinkRoPE_asym4W_sym16A_Overall_hessian_i8c_cc_sinkRoPE_36layer_1t2048c_sinkRoPE_0.dla
+
+  # Cache Eviction
+  cacheEvictionMode: LocalSnapKv
+  localSnapKvAttnSinkSize: 4

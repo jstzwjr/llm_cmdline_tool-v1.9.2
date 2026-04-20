@@ -1,0 +1,50 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 1024
+  hiddenSize: 4096
+  numHead: 32
+  numLayer: 32
+  maxTokenLength: 8192
+  rotEmbBase: 500000
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT16
+  maskType: INT16
+  rotEmbType: INT16
+
+
+runtimeOptions:
+  # Special tokens that affects the inference behavior.
+  specialTokens:
+    bosId: 128000      # BOS token Id, required to set.
+    eosId: 128001      # EOS token Id, required to set.
+    addBos: false      # Prepend BOS token during tokenization. Default to false if not set.
+    stopToken: [128001, 128009]   # Inference stops once a stop token is generated. Either a list (e.g. EOS & EOT used by Llama3) or a value (usually EOS). Default to eosId if not set.
+
+  tokenizerRegex: "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\r\n]*|\\s*[\r\n]+|\\s+(?:$|[^\\S])|\\s+"
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/llama3/llama3_8b.tiktoken
+    - /data/local/tmp/llm_sdk/llama3/added_tokens.yaml
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/llama3/embedding_llama3_8b_instruct.bin
+
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_128t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_128t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_128t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_128t1024c_3.dla
+
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_1t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_1t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_1t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llama3/llama3-8B-instruct_sym4W_sym16A_Overall_hessian_8layer_1t1024c_3.dla
+
+  sharedWeightsPaths:
+    - /data/local/tmp/llm_sdk/llama3/shared_weights_0.bin
+    - /data/local/tmp/llm_sdk/llama3/shared_weights_1.bin
+    - /data/local/tmp/llm_sdk/llama3/shared_weights_2.bin
+    - /data/local/tmp/llm_sdk/llama3/shared_weights_3.bin

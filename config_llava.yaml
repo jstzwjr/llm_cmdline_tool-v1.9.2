@@ -1,0 +1,42 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  genTokenBatchSize: 1
+  cacheSize: 1024
+  hiddenSize: 4096
+  numHead: 32
+  numLayer: 32
+  maxTokenLength: 4096
+  # Types
+  modelInputType: FP16
+  modelOutputType: INT16
+  cacheType: INT16
+  maskType: INT16
+  rotEmbType: INT16
+
+runtimeOptions:
+  # Special tokens that determines the inference behavior.
+  specialTokens:
+    bosId: 1      # BOS token Id, required to set.
+    eosId: 2      # EOS token Id, required to set.
+    addBos: false  # Prepend BOS token during tokenization. Default to false if not set.
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/llava1.5/tokenizer.model
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/llava1.5/embedding_llava-v1.5-7b_fp16.bin
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/llava1.5/128t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_128t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llava1.5/128t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_128t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llava1.5/128t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_128t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llava1.5/128t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_128t1024c_3.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/llava1.5/1t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_1t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llava1.5/1t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_1t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llava1.5/1t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_1t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llava1.5/1t/llava-v1.5-7b_sym4W_sym16A_Overall_hessian_1t1024c_3.dla
+
+  # MLLM options for vision / mm_projector modules
+  clipPath: /data/local/tmp/llm_sdk/llava1.5/vision_embedding_llava-v1.5-7b.dla
+  clipPatchEmb: /data/local/tmp/llm_sdk/llava1.5/patch_embedding_llava-v1.5-7b.tflite
+  imageTokenSize: 576

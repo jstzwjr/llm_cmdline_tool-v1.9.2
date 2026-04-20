@@ -1,0 +1,37 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 2048
+  hiddenSize: 3072
+  numHead: 24
+  numLayer: 28
+  maxTokenLength: 131072
+  numAttnOutputs: 28
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT8
+  maskType: INT16
+  rotEmbType: INT16
+  rotEmbBase: 500000.0
+
+runtimeOptions:
+  specialTokens:
+    bosId: 128000
+    eosId: 128001
+    addBos: true
+    stopToken: [128001, 128008, 128009]  # Either a list or a value. Default to eosId if left blank
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Llama3.2-3B-Instruct_tokenizer.tiktoken
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Llama3.2-3B-Instruct_added_tokens.yaml
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/embedding_Llama-3.2-3B-Instruct_int16.bin
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Llama-3.2-3B-Instruct_SCRB_8192_return_attn_weights_sinkRoPE_asym4W_sym16A_Overall_i8c_cc_sinkRoPE_28layer_128t2048c_sinkRoPE_0.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/4w16a_INT8_cache_return_all_layer/Llama-3.2-3B-Instruct_SCRB_8192_return_attn_weights_sinkRoPE_asym4W_sym16A_Overall_i8c_cc_sinkRoPE_28layer_1t2048c_sinkRoPE_0.dla
+
+  # Cache Eviction
+  cacheEvictionMode: LocalSnapKv
+  localSnapKvAttnSinkSize: 4

@@ -1,0 +1,42 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 2048
+  hiddenSize: 3584
+  numHead: 28
+  numLayer: 28
+  maxTokenLength: 32768
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT16
+  maskType: INT16
+  rotEmbType: INT16
+  rotEmbBase: 1000000.0
+
+runtimeOptions:
+  specialTokens:
+    bosId: 151644
+    eosId: 151645
+    addBos: false # Default to false if not set
+    stopToken:    # Either a list or a value. Default to eosId if left blank
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/assets/qwen_vocab/merges.txt
+    - /data/local/tmp/llm_sdk/assets/qwen_vocab/vocab.txt
+    - /data/local/tmp/llm_sdk/assets/qwen_vocab/added_tokens.yaml
+  tokenEmbPath: /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/embedding_Qwen2-7B-Instruct_int16.bin
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_128t2048c_0_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_128t2048c_1_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_128t2048c_2_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_128t2048c_3_shared.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_1t2048c_0_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_1t2048c_1_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_1t2048c_2_shared.dla
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/Qwen2-7B-Instruct_asym4W_sym16A_Overall_hessian_7layer_1t2048c_3_shared.dla
+  sharedWeightsPaths:
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/shared_weights_2048c_0.bin
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/shared_weights_2048c_1.bin
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/shared_weights_2048c_2.bin
+    - /data/local/tmp/llm_sdk/assets/dla_qwen/llm_sdk_v2.3.4/Qwen2-7B-Instruct/shared_weights_2048c_3.bin

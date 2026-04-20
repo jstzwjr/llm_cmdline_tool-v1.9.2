@@ -1,0 +1,187 @@
+modelOptions:
+  # Architecture
+  genModelBatchSize: 1      # Batch size of gen model. Default to 1 if not set. Currently prompt mode w/ batch size > 1 is not supported.
+  promptTokenBatchSize: 128 # Prompt mode input token size. Example 128t.
+  genTokenBatchSize: 1      # Generation mode input token size. Default to 1 if not set.
+  cacheSize: 1024           # Cache size (context length) supported by the fixed-shape model.
+  hiddenSize: 4096          # Model hidden size.
+  numHead: 32               # Number of attention heads per layer (Ignore GQA when setting this).
+  numLayer: 32              # Total number of layers in the model.
+  headDim: 0                # The head dim size of the model. If not set (or set to 0), then it will be calculated as hiddenSize / numHead. Default to 0.
+  maxTokenLength: 4096      # Max supported context length (aka max_position_embeddings).
+  rotEmbBase: 10000         # Rotary embedding base value (aka rope_theta). Default to 10000.
+  rotEmbNumInputs: 2        # The number of rotary embedding inputs. Set to 1 to use with llm-sdk <= v2, otherwise set to 2 for llm-sdk >= v3. Default to 2.
+  ntkScale: 1.0             # Rotary embedding NTK scale value. Default to 1.0 (aka not used).
+  numAttnOutputs: 0         # Number of attention outputs. Either 0, 1, or same as numLayer. If set to numLayer, it will be divided by the number of chunks. Default to 0.
+
+  # Types
+  modelInputType: INT16     # Input embedding type.
+  modelOutputType: INT16    # Output logits type.
+  cacheType: INT16          # Cache Input & Output type.
+  maskType: INT16           # Input mask type.
+  rotEmbType: INT16         # Input Rotary embedding type.
+
+  # Inputs
+  splitMask: false          # Whether to use split mask. If set to true, the model uses two separate mask inputs (attention mask & cache mask). Default to false.
+
+  # [Optional]
+  modelOutputQuantScale: 1  # Quant scale to dequantization logits to FP. Used by Spec-Dec and Medusa runner. Default to 1 if not set.
+
+  # [Optional]
+  numMedusaHeads: 3         # Number of medusa heads. Used with Medusa runner. Default to 0 if not set.
+
+
+runtimeOptions:
+  # Special tokens that affects the inference behavior.
+  specialTokens:
+    bosId: 1      # BOS token Id, required to set.
+    eosId: 2      # EOS token Id, required to set.
+    addBos: false # Prepend BOS token during tokenization. Default to false if not set.
+    stopToken:    # Inference stops once a stop token is generated. Either a list (e.g. EOS & EOT used by Llama3) or a value (usually EOS). Default to eosId if not set.
+
+  # [Optional]
+  # The tokenizer regex pattern.
+  # If not set, by default HuggingFace tokenizer uses Qwen1.5 regex pattern, whereas Tiktoken tokenizer uses Llama3 regex pattern.
+  # This option is ignored by SentencePiece tokenizer.
+  # NOTE: The pattern must be compatible with RE2 C++ regex library, so some changes might be needed when porting from other libraries or languages.
+  tokenizerRegex: "((?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\r\n]*|\\s*[\r\n]+|\\s+(?:$|[^\\S])|\\s+)"
+
+  # The paths to tokenizer files, with two ways to set:
+  #  [Option 1] Set using the directory path containing the tokenizer files, for example:
+  #    tokenizerPath: /data/local/tmp/llm_sdk/qwen
+  #
+  #  [Option 2] Specify each tokenizer file explicitly, for example:
+  #    tokenizerPath:
+  #      - /data/local/tmp/llm_sdk/qwen/merges.txt
+  #      - /data/local/tmp/llm_sdk/qwen/vocab.txt         (Generated using scripts/prepare_huggingface_tokenizer.py)
+  #      - /data/local/tmp/llm_sdk/qwen/added_tokens.yaml (Generated using scripts/prepare_added_tokens.py or scripts/prepare_huggingface_tokenizer.py)
+  tokenizerPath: /data/local/tmp/llm_sdk/qwen
+
+  # The path to input token embedding .bin file.
+  # NOTE: The type must match the model input embedding type.
+  tokenEmbPath: /path/to/input_embedding.bin
+
+
+  ##===--------------------===##
+  ## LLM Model Paths Settings
+  ##===--------------------===##
+  # There are two ways to set LLM model paths.
+  #
+  # [Format 1: Basic] Use 'dlaPromptPaths' and 'dlaGenPaths' if the cache size remains constant throughout the inference flow.
+  #                   In this case, the cache size will based on modelOptions.cacheSize.
+  #                   If only 1t model is required (gen model), then 'dlaPromptPaths' can be omitted.
+  #  dlaPromptPaths:
+  #    - /path/to/prompt_model_128t_chunk0.dla
+  #    - /path/to/prompt_model_128t_chunk1.dla
+  #  dlaGenPaths:
+  #    - /path/to/prompt_model_1t_chunk0.dla
+  #    - /path/to/prompt_model_1t_chunk1.dla
+  #
+  #
+  # [Format 2: Advanced] Use 'dlaPaths' and specify each of the *t*c (token & cache size) configurations of the DLAs.
+  #                      This format allows the use of "Pseudo-Dynamic Cache" switching.
+  #                      Also, the modelOptions 'promptTokenBatchSize', 'genTokenBatchSize', and 'cacheSize' will be ignored.
+  #  dlaPaths:
+  #    128t512c:
+  #      - /path/to/prompt_model_128t512c_chunk0.dla
+  #      - /path/to/prompt_model_128t512c_chunk1.dla
+  #    128t1024c:
+  #      - /path/to/prompt_model_128t1024c_chunk0.dla
+  #      - /path/to/prompt_model_128t1024c_chunk1.dla
+  #    1t512c:
+  #      - /path/to/prompt_model_1t512c_chunk0.dla
+  #      - /path/to/prompt_model_1t512c_chunk1.dla
+  #    1t1024c:
+  #      - /path/to/prompt_model_1t1024c_chunk0.dla
+  #      - /path/to/prompt_model_1t1024c_chunk1.dla
+  #
+  # [TL;DR]: Use Format 2 if requires pseudo-dynamic cache switch, otherwise use Format 1 for simplicity.
+  # NOTE that even by using Format 1, the config parser will convert it and store as Format 2 internally.
+  #
+  # Example below uses the Format 1 to specify the prompt and gen DLA paths.
+  dlaPromptPaths:
+    - /path/to/prompt_model_128t_chunk0.dla
+    - /path/to/prompt_model_128t_chunk1.dla
+  dlaGenPaths:
+    - /path/to/prompt_model_1t_chunk0.dla
+    - /path/to/prompt_model_1t_chunk1.dla
+
+  # [Optional]
+  # The path to LM Head DLA. Use this option if separate LM Head is used.
+  # Any token size is supported (and handled automatically) as long as it is sufficient for the use case.
+  dlaLmHeadPath: /path/to/lm_head.dla
+
+  # [Optional]
+  # The paths to shared weights bin, where each file corresponds to each DLA chunk.
+  # It is used to share the common weights between prompt and gen model DLA chunk.
+  sharedWeightsPaths:
+    - /path/to/shared_weights_chunk0.bin
+    - /path/to/shared_weights_chunk1.bin
+
+  # [Optional]
+  # Set to true to indicate that the last path in `sharedWeightsPaths` is used for LM Head DLA.
+  useLmHeadSharedWeights: false
+
+  # [Optional]
+  # The path to Medusa Head DLA.
+  # This is used with Medusa runner.
+  dlaMedusaHeadsPath: /path/to/medusa_head.dla
+
+
+  # [Optional]
+  # Dynamic Lora Configs (aka Lora-as-Inputs).
+  # Each Lora bin file contains the Lora weights used by each DLA chunk.
+  #
+  # initWithLoraKey: Optionally set to load the specified Lora weights during model init.
+  #                  Otherwise, the Lora inputs will be initialized with zeros.
+  #
+  # loraInputCount: Optionally set to specify the number of Lora inputs per DLA chunk.
+  #                 Otherwise, the value will be inferred from the header of bin files (recommended).
+  #
+  # Example below is using two sets of Lora (loraA & loraB) and initializing the model with loraA,
+  # with `loraInputCount` value being left blank to infer from Lora bin file header.
+  initWithLoraKey: loraA  # Leave blank to initialize model base weights only
+  loraInputCount:         # Leave blank to infer from lora weights bin header
+  loraWeightsPaths:       # Each bin file corresponds to each DLA chunk.
+    loraA:
+      - /path/to/loraA_inputs_chunk0.bin
+      - /path/to/loraA_inputs_chunk1.bin
+    loraB:
+      - /path/to/loraB_inputs_chunk0.bin
+      - /path/to/loraB_inputs_chunk1.bin
+
+  # [Optional]
+  # The paths to precomputed KV cache.
+  # Use one cache file per dla chunk, where each file is a concatenation of all caches in a chunk.
+  # NOTE: If set, calling `neuron_llama_reset` API will reset the cache to this precomputed cache.
+  cachePaths:
+
+  # [Optional]
+  # This option is used together with cachePaths. Default to 0 if not set.
+  # This defines the token index after loading the precomputed cache from `cachePaths`.
+  startTokenIndex: 0
+
+  # [Optional]
+  # Cache eviction options.
+  # The currently supported cache eviction modes are 'LocalSnapKV' and 'GlobalSnapKV'.
+  cacheEvictionOptions:
+    # To enable cache eviction, set mode to one of the supported modes, e.g. 'LocalSnapKV'.
+    mode:
+    # Enable 'evictPromptCacheOnly' to only activate cache eviction during prompt mode (non 1t stage).
+    evictPromptCacheOnly: false
+    # Whether the attention outputs are already reduced inside the graph, i.e. the shape becomes (1, 1, token_size, 1).
+    # This option will be ignored if the cache eviction mode does not support reduced attention.
+    useIngraphAttnReduce:
+    # If 'LocalSnapKV' mode is enabled, set the following attention sink option to a non-zero value.
+    snapkvAttnSinkSize:
+    # Whether to use Sink Rotary Embedding inputs. Default to true if 'LocalSnapKV' mode is enabled, otherwise default to false.
+    useSinkRotEmb:
+    # If 'GlobalSnapKV' mode is enabled, set the following options to non-zero values.
+    snapkvWindowSize:  # Default to 32
+    snapkvKernelSize:  # Default to 7
+    snapkvMaxCapacity: # Default to 2048
+    snapkvPooling:     # Default to 'MaxPool'
+
+  # [Optional]
+  # Custom path to NeuroPilot Backend Runtime Library for USDK.
+  npLibPath:

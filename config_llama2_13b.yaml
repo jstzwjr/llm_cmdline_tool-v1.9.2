@@ -1,0 +1,54 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 1024
+  hiddenSize: 5120
+  numHead: 40
+  numLayer: 40
+  maxTokenLength: 4096
+  rotEmbBase: 10000
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT16
+  maskType: INT16
+  rotEmbType: INT16
+
+runtimeOptions:
+  # Special tokens that determines the inference behavior.
+  specialTokens:
+    bosId: 1      # BOS token Id, required to set.
+    eosId: 2      # EOS token Id, required to set.
+    addBos: true  # Prepend BOS token during tokenization. Default to false if not set.
+
+  tokenizerPath: /data/local/tmp/llm_sdk/llama2_13b/tokenizer.model
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/llama2_13b/embedding_llama2_13b.bin
+
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_3.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_4.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_5.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_6.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_128t1024c_7.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_0.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_1.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_2.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_3.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_4.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_5.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_6.dla
+    - /data/local/tmp/llm_sdk/llama2_13b/llama2_13b_sym4W_sym16A_Overall_hessian_1t1024c_7.dla
+  sharedWeightsPaths:
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_0.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_1.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_2.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_3.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_4.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_5.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_6.bin
+    - /data/local/tmp/llm_sdk/llama2_13b/shared_weights_7.bin

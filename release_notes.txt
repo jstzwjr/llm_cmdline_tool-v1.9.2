@@ -1,0 +1,180 @@
+[v1.9.2]
+- Important Bug Fixes:
+  - Fixed a critical bug in ThreadPool::joinAll() where deadlock may occur in certain cases.
+  - Fixed possible race condition in Allocator::mAllocatedBuffers by adding mutex locks.
+  - Fixed incorrect memory movements in CacheEvictionAgent::evictCacheAbs().
+  - Enabled cache eviction in MLLM build by limiting -fexceptions compile flag to image_transform.cpp only.
+    - This fixes a segfault error when running cache eviction in MLLM build by making the linking consistent with -fno-exceptions.
+- Feature Updates:
+  - Cache Eviction:
+    - Added GlobalSnapKV cache eviction algorithm. NOTE: Currently it only supports Left and Right cache shrink modes.
+    - LocalSnapKV updates:
+      - Added support for ingraph attention reduction to perform reduce Ops in NPU.
+      - Added an option to disable SinkRoPE.
+  - Neuron Adapter updates:
+    - Added error checks for all Neuron Adapter API calls.
+    - Added an API to reset global NeuronAdapterLib instance.
+    - NeuronAdapterLib now defaults to search for NP9 USDK library file (libneuronusdk_adapter.9.mtk.so) instead of libneuronservice_adapter.mtk.so.
+  - Added split-mask support for all existing masking modes.
+  - KV Cache Save & Restore:
+    - Added APIs to save and restore non-padded KV cache data on-the-fly: mtk_llm_get_nopad_caches_nbytes, mtk_llm_save_nopad_caches, mtk_llm_restore_caches.
+    - Added a feature to auto detect and pad KV cache data during init or manual restore.
+  - Model swapping flexibility:
+    - Added support for swapping to models with smaller cache sizes.
+    - Added support for swapping to models with different number of IOs via OrderedKinds and MutableIO utils.
+  - Dump handler now writes to unique directories based on datetime.
+  - Enabled prepare_huggingface_tokenizer.py to support list entries in huggingface tokenizer merges.
+  - Added Gemma preformatter.
+- Optimization:
+  - Reduced inference overhead by adding --disable-invalidate-output option to backend runtime to skip unnecessary output invalidations during inference.
+  - Cache eviction agents now reuses thread pool across inference steps to reduce thread creation/destruction overhead.
+  - Added 'Left' and 'Adaptive' cache eviction shrink mode to allow flexible and more efficient cache eviction process.
+    - Originally only supports right shrink mode.
+    - Adaptive shrink mode is currently only supported for LocalSnapKV.
+- Engineering:
+  - Simplified LlmExecutor::assignBufferSizesToMax() by allowing IoBufferInflator to accept customized size calculations.
+
+[v1.9.1]
+- Added split mask support for autoregressive mode.
+- Added support for separate LM Head shared weights.
+- Added Qwen3 preformatter.
+- Added INT8 mask support.
+- Added support for custom neuron adapter library via 'npLibPath' in runtime option.
+- Changed the default number of rotary embeddings inputs to 2 to align with llm-sdk v3.
+  - NOTE: For backward compatibility, set rotEmbNumInputs to 1 under model options.
+- Changed patch embedding DLA to be optional to align with NP9 vision encoder graph.
+- Improved MLLM runners to treat image paths as text files containing image paths only when --one-prompt-per-line option is used.
+- Updated main.cpp to reuse shared weights across yaml configs when --preload-shared-weights is used.
+- Optimization:
+  - Skipped unnecessary input flushes during inference to improve latency by disabling backend runtime sync input while using uncached buffer.
+    - NOTE: To return to the original behavior, define NO_DISABLE_SYNC_INPUT macro.
+- Engineering:
+  - Neuron USDK backend now searches for libneuronservice_adapter.mtk.so by default.
+  - Reduced dependency on HW data alignment constant to support multiple platforms that use different alignments.
+  - Rebuilt third-party shared libraries to be 16 KB-aligned.
+  - Updated OpenCV third-party library to v4.11.0.
+- Bug Fixes:
+  - Fixed a use-after-free bug in dma buffer allocator release.
+  - Fixed utils function misalignments between header and source files.
+  - Fixed a config naming from 'numAttnOutpus' to 'numAttnOutputs'.
+
+[v1.9.0]
+- Added improved ThreadPool util.
+- Added LocalSnapKV cache eviction algorithm.
+- Fixed Medusa Heads init bug.
+- Changed libdrafter.so shared library to libdrafter.a static library.
+- Added 'headDim' model options to support models that do not calculate headDim as `hiddenSize / numHead`.
+  - NOTE: If this option is not provided in the yaml config, then it will be set as `hiddenSize / numHead` by the yaml config parser.
+- Engineering:
+  - Simplified the construction of LlmExecutor objects by directly passing in LlmModelOptions and LlmRuntimeOptions.
+  - Improved the IO scalability of LlmExecutor by using IOKind.
+- Optimization:
+  - DirectIO is now enabled by default for shared weights loading to reduce peak memory during initialization.
+  - Token embedding now accesses the lookup table via mmap directly without storing it in DRAM to reduce load time.
+
+[v1.8.0]
+- Added TreeSpD+.
+- Fixed multi shared weights checks in yaml config parser.
+- Improved error handling of FileDirectReader.
+
+[v1.7.4]
+- Added InternLM2 preformatter support.
+- Improved IO buffer registration logic to skip unnecessary setInput/setOutput backend API calls.
+- Added support for shared weights buffer reuse across LLM runtimes and the ability to preload only a subset of shared weights.
+  - Introduced SmartIOBuffer and use shared_ptr for SharedWeights buffer sharing across handles.
+  - NOTE: All mtk_llm shared weights APIs are standardized to have the form `mtk_llm_shared_weights_*`.
+- Refined Speculative Decoding flow with more detailed latency breakdown and other improvements.
+- Fixed a bug in cache file reading.
+
+[v1.7.3]
+- Added DirectIO mechanism to optionally reduce peak memory in file reading.
+- Added `--adapter-disable-map-fd` option for NeuronAdapter/USDK Runtime to reduce unnecessary runtime overhead.
+- Fixed shared weights preloading error checking bug when using multiple shared weights per chunk.
+
+[v1.7.2]
+- Disabled left padding for MLLM by default.
+
+[v1.7.1]
+- Fix mtk_*llm_release API where runtime pointer is not deleted.
+- Modified clip_preprocess to return in RGB format instead of BGR.
+
+[v1.7.0]
+- Refactored `mtk_llm` and `mtk_mllm` APIs to `LlmRuntime` classes.
+- Refactored `parseLlmConfigYaml` to `YamlConfigParser` classes.
+- Fix allocator's releaseAll() where iterators may be invalidated during loop.
+- Shared weights files are released where possible after the data have been loaded to buffers.
+
+[v1.6.3]
+- Added support for Llama3.2 1b & 3b Instruct.
+- Added MLLM (LlaVa) + Speculative Decoding.
+- Improved model swapping logic in main runners.
+- Executor::release() calls are now optional by having it automatically invoked in subclass destructors.
+  - This eliminates memory leakage due to accidental omission of Executor::release() calls.
+
+[v1.6.2]
+- Simplify USDK build scripting by using '-usdk' flag to trigger USDK build.
+- Add MLLM consume_emb API for further flexibility.
+- Add scope-based profiling tools for latency measurement and function call tracking, replacing manual profiling code.
+- Fix SharedWeightsHandle release bug.
+
+[v1.6.1]
+- Added shared weights preloading feature.
+- Added support for multiple shared weights bins per DLA file.
+  - NOTE: The number of shared weights bin used by a DLA file must be the same across all DLA chunks.
+- Added support for MLLM running on USDK backend.
+- Fixed a MLLM runtime release bug.
+
+[v1.6.0]
+- Added Qwen2 model support.
+- Added MiniCPM model support.
+- Fixed memory leak bug for LmHead, MedusaHeads, and MLLM CLIP executors by calling `release()`.
+- Added checks for USDK executor to ensure model IO count is manually set before initialization of executor.
+- Separate LmHead inference is now skipped until the last prompt step.
+- Removed Medusa INT16 logits constraint by refactoring and slightly optimizing runner utils.
+- Removed libdmabufheap.so dependency, and USDK executor now use AHardwareBuffer in memory allocation for better portability.
+- Updated PowerHAL API to support Android V.
+- Engineering:
+    - Source files are now formatted with clang-format.
+    - Refactored rotary embedding lookup to improve readability.
+
+[v1.5.1]
+- Added PowerHAL to runner
+- Added 'ntkScale' option to config
+- Added support for MiniCPM 1B and 2B model
+- Engineering
+  - Apply lora from buffer API to use `const char*` instead of `char*`
+  - llm_types.h is renamed to mtk_llm_types.h to align with mtk naming changes
+
+[v1.5.0]
+- Added gen batch mode support.
+- Added pseudo-dynamic cache support, with auto switching feature.
+- Added fast KV cache update feature (Inplace Update Mode), which will be automatically enabled if the DLA supports it.
+- Overhauled the LLM inference flow to improve multi-chunk inference speed by reducing inter-chunk CPU overhead time.
+- Engineering:
+  - The term 'Llama' has been replaced by 'Llm' from the repo to generalize the code. NOTE: This breaks the existing API namings.
+  - Added 'FileSource' wrapper to allow users to set LLM model files in the config via buffers instead of paths. NOTE: Tokenizer settings are excluded from this.
+  - Refactored the repo to use namespaces.
+
+[Changes in v1.0.3 (NP7) / v2.0.3 (NP8)]
+- Added support for LLaVA1.5 for Multimodal input (text + image)
+- Added support for Phi-3
+- Parallelize model init & load shared weights to reduce init time
+- Fixed llama3-8b default rotEmbBase (rope_theta) value to 500k
+- Added prepare_sentencepiece_tokenizer.py script to align PC and Device sentencepiece tokenizer behavior.
+
+[Changes in v1.0.2 (NP7) / v2.0.2 (NP8)]
+- Added Qwen1.5 model support.
+- Added Llama3 model support.
+- Added Medusa runner. This requires setting 'numMedusaHeads' and 'dlaMedusaHeadsPath' in the config.
+- Split tail (LM Head) mode is now supported. To enable this mode, set the 'dlaLmHeadPath' option.
+- A YAML config template guide is now provided as a reference guide when setting the YAML config.
+- Added a tokenizer wrapper class to support SentencePiece, HuggingFace, and Tiktoken tokenizers. The changes to config:
+    - 'vocabPath' is replaced by 'tokenizerPath'
+    - 'specialTokens' option is added and required.
+    - 'tokenizerRegex' option is added to use for HuggingFace & Tiktoken tokenizers.
+- Tflite embedding has been replaced by .bin lookup table. Hence, the config 'tfliteEmbPath' is deprecated and replaced by 'tokenEmbPath'.
+- build.bat has been renamed to build_runner.bat.
+- build_all.bat and build_all_usdk.bat have been added to build the cmdline tool from scratch.
+- jni/prebuilt/src/utils has been moved to jni/prebuilt/src/common and build as libcommon.so shared library.
+- Model init now uses multi-threading to speed up.
+- Add Neuron runtime QoS, default to performance mode.

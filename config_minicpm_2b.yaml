@@ -1,0 +1,35 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  genTokenBatchSize: 1
+  cacheSize: 1024
+  hiddenSize: 2304
+  numHead: 36
+  numLayer: 40
+  maxTokenLength: 4096
+  rotEmbBase: 10000
+  # Types
+  modelInputType: int16
+  modelOutputType: int16
+  cacheType: int16
+  maskType: int16
+  rotEmbType: int16
+
+runtimeOptions:
+  startTokenIndex: 0
+
+  # Special tokens that determines the inference behavior.
+  specialTokens:
+    bosId: 1      # BOS token Id, required to set.
+    eosId: 2      # EOS token Id, required to set.
+    addBos: true  # Prepend BOS token during tokenization. Default to false if not set.
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/minicpm_2b/tokenizer.model
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/minicpm_2b/embedding_MiniCPM-2B-sft-bf16_int16.bin
+
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/minicpm_2b/MiniCPM-2B-sft-bf16_sym4W_sym16A_Overall_hessian_40layer_128t1024c_0.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/minicpm_2b/MiniCPM-2B-sft-bf16_sym4W_sym16A_Overall_hessian_40layer_1t1024c_0.dla

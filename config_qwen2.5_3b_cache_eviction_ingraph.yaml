@@ -1,0 +1,44 @@
+modelOptions:
+  # Architecture
+  promptTokenBatchSize: 128
+  cacheSize: 2048
+  hiddenSize: 2048
+  numHead: 16
+  numLayer: 36
+  maxTokenLength: 32768
+  numAttnOutputs: 36
+  # Types
+  modelInputType: INT16
+  modelOutputType: INT16
+  cacheType: INT8
+  maskType: INT16
+  rotEmbType: INT16
+  rotEmbBase: 1000000.0
+  splitMask: true
+
+
+runtimeOptions:
+  startTokenIndex: 0
+  specialTokens:
+    bosId: 151644
+    eosId: 151645
+    addBos: false # Default to false if not set
+    stopToken:    # Either a list or a value. Default to eosId if left blank
+
+  tokenizerPath:
+    - /data/local/tmp/llm_sdk/Qwen2.5-3B-Instruct_vocab/Qwen2.5-3B-Instruct_merges.txt
+    - /data/local/tmp/llm_sdk/Qwen2.5-3B-Instruct_vocab/Qwen2.5-3B-Instruct_vocab.txt
+    - /data/local/tmp/llm_sdk/Qwen2.5-3B-Instruct_vocab/Qwen2.5-3B-Instruct_added_tokens.yaml
+
+  tokenEmbPath: /data/local/tmp/llm_sdk/oppo_local_ingraph/embedding_int16.bin
+
+  dlaPromptPaths:
+    - /data/local/tmp/llm_sdk/oppo_local_ingraph/OPPO_Qwen2.5-3B-w4a16kv8-qc-attn_LocalSnapKV_overture_qwen2.5_3B_precision_Overall_hessian_wgt_opt_cum_layer_error_rotate_hadamard_0_128t2048c_0.dla
+  dlaGenPaths:
+    - /data/local/tmp/llm_sdk/oppo_local_ingraph/OPPO_Qwen2.5-3B-w4a16kv8-qc-attn_LocalSnapKV_overture_qwen2.5_3B_precision_Overall_hessian_wgt_opt_cum_layer_error_rotate_hadamard_0_1t2048c_0.dla
+
+  # Cache Eviction
+  cacheEvictionOptions:
+    mode: LocalSnapKV
+    snapkvAttnSinkSize: 4
+    useIngraphAttnReduce: true
