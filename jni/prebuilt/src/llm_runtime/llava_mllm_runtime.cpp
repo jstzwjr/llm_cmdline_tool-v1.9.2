@@ -49,6 +49,7 @@ bool LlavaRuntime::initialize(const LlmModelOptions& modelOptions,
     }
 
     mOptions = runtimeOptions;
+    mClipPreprocess = runtimeOptions.clipPreprocess;
 
     const size_t numChunks = utils::getNumChunks(runtimeOptions);
 
@@ -251,7 +252,19 @@ void LlavaRuntime::release() {
 void* LlavaRuntime::getImageEmbedding(const void* buffer, const size_t size) {
     size_t imageSizeBytes = 0;
     using namespace mtk::image_utils;
-    const auto image = clip_preprocess(buffer, size, imageSizeBytes, kImgSize, kCropSize, kScale);
+    const auto& pp = mClipPreprocess;
+    cv::Mat image;
+    Timer __wjr_ppTimer;
+    __wjr_ppTimer.start();
+    if (pp.mode == "qwen_vl") {
+        image = qwen_vl_preprocess(buffer, size, imageSizeBytes,
+                                   pp.imageWidth, pp.imageHeight,
+                                   pp.patchSize, pp.temporalPatchSize, pp.mergeSize,
+                                   pp.mean, pp.std, pp.resizeMode);
+    } else {
+        image = clip_preprocess(buffer, size, imageSizeBytes, kImgSize, kCropSize, kScale);
+    }
+    LOG(INFO) << "[WJR] image preprocess took: " << __wjr_ppTimer.reset()*1000 << " ms";
 
     // Assume image is already preprocessed
     if (mClipPatchEmbExecutor) {
@@ -263,11 +276,18 @@ void* LlavaRuntime::getImageEmbedding(const void* buffer, const size_t size) {
         mClipExecutor->setModelInput(image.data, imageSizeBytes);
     }
 
+    // Dump encoder DLA input for alignment debug
+    DUMP(INPUTS).fromBinary("encoder_input", image.data, imageSizeBytes);
+
     Timer clipDLATimer;
     clipDLATimer.start();
     mClipExecutor->runInference();
     LOG(INFO) << "Done CLIP dla inference in: " << clipDLATimer.reset() << "s";
     const auto clipEmbBuffer = mClipExecutor->getOutputBuffer();
+
+    // Dump encoder DLA output for alignment debug
+    const size_t clipOutputSize = mClipExecutor->getModelOutputSizeBytes();
+    DUMP(INPUTS).fromBinary("encoder_output", clipEmbBuffer, clipOutputSize);
 
     return clipEmbBuffer;
 }

@@ -369,7 +369,8 @@ void mllm_init(void** mllmRuntime, const std::string& yamlConfigPath) {
 std::tuple<double, double> mllm_inference(void* mllmRuntime, const std::string& prompt,
                                           const std::vector<std::string>& promptImagePaths,
                                           const TokenizerUPtr& tokenizer, const size_t maxResponse,
-                                          const bool parsePromptTokens) {
+                                          const bool parsePromptTokens,
+                                          const float repetitionPenalty = 1.0f) {
     auto [inputPrompt, inputTokens] =
         get_prompt_and_tokens_llava(prompt, tokenizer, parsePromptTokens);
 
@@ -407,6 +408,10 @@ std::tuple<double, double> mllm_inference(void* mllmRuntime, const std::string& 
               << promptTimeTaken << "s" << " (" << promptTokPerSec << " tok/s)";
 
     // Prompt mode ended, take the output and feed as input
+    // Dump first token logits for alignment debug
+    const size_t logitsSizeBytes = tokenizer->vocabSize() * (logitsType == mtk::LLMType::FP16 ? 2 : 2);
+    DUMP(INPUTS).fromBinary("first_token_logits", lastLogits, logitsSizeBytes);
+
     // Apply argmax to generate the first token
     auto outputToken = utils::argmaxFrom16bitLogits(logitsType, lastLogits, tokenizer->vocabSize());
 
@@ -439,6 +444,14 @@ std::tuple<double, double> mllm_inference(void* mllmRuntime, const std::string& 
     size_t genTokCount = 0;
 
     // Begin gen mode inference
+    const bool useRepPenalty = (repetitionPenalty > 1.0f);
+    const size_t vocabSize = tokenizer->vocabSize();
+    std::vector<float> fp32Buf;
+    std::vector<TokenType> generatedTokens;
+    if (useRepPenalty) {
+        fp32Buf.resize(vocabSize);
+        generatedTokens.push_back(outputToken);
+    }
 
     timer.start();
     while (curResponse < maxResponse && sequenceLength < maxTokenLength) {
@@ -447,8 +460,31 @@ std::tuple<double, double> mllm_inference(void* mllmRuntime, const std::string& 
         // Run inference to get the logits
         lastLogits = mtk_mllm_inference_once(mllmRuntime);
 
-        // Compute argmax on the logits
-        outputToken = utils::argmaxFrom16bitLogits(logitsType, lastLogits, tokenizer->vocabSize());
+        if (useRepPenalty) {
+            // Convert 16-bit logits to float32
+            if (logitsType == mtk::LLMType::FP16) {
+                const auto* fp16 = reinterpret_cast<const __fp16*>(lastLogits);
+                for (size_t i = 0; i < vocabSize; i++) fp32Buf[i] = static_cast<float>(fp16[i]);
+            } else {
+                const auto* i16 = reinterpret_cast<const int16_t*>(lastLogits);
+                for (size_t i = 0; i < vocabSize; i++) fp32Buf[i] = static_cast<float>(i16[i]);
+            }
+            // Apply repetition penalty to all previously generated tokens
+            for (const auto& prevToken : generatedTokens) {
+                if (prevToken >= 0 && static_cast<size_t>(prevToken) < vocabSize) {
+                    float& score = fp32Buf[prevToken];
+                    score = (score < 0) ? score * repetitionPenalty : score / repetitionPenalty;
+                }
+            }
+            // Argmax on penalized logits
+            outputToken = static_cast<TokenType>(
+                std::max_element(fp32Buf.begin(), fp32Buf.end()) - fp32Buf.begin());
+            generatedTokens.push_back(outputToken);
+        } else {
+            // Original argmax path (no penalty overhead)
+            outputToken = utils::argmaxFrom16bitLogits(logitsType, lastLogits, vocabSize);
+        }
+        generatedTokens.push_back(outputToken);
 
         // Convert token id from argmax to string (bytes)
         tokStr = tokenizer->detokenize(outputToken);
@@ -509,6 +545,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> prompts;
     std::string defaultPrompt = "Show me a detailed recipe for cooking this at home.";
     std::string preformatterName = "VicunaNoInput";
+    float repetitionPenalty = 1.0f; // 1.0 = disabled
 
     // Treat each line in prompt text as a single prompt.
     // Will replace literal "\n" with new line char '\n'.
@@ -551,9 +588,25 @@ int main(int argc, char* argv[]) {
         } else if (matchArgument(curArg, "--preformatter", "-pref")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             preformatterName = argv[++i];
+        } else if (matchArgument(curArg, "--rep-penalty")) {
+            ENSURE_NEXT_ARG_EXISTS(i)
+            repetitionPenalty = std::atof(argv[++i]);
         } else {
             LOG(INFO) << "Unrecognized argument: " << curArg;
         }
+    }
+
+    // Read repetitionPenalty from YAML if not set via CLI (default 1.0 = off)
+    {
+        YAML::Node yamlCfg = YAML::LoadFile(yamlConfigPath);
+        auto samplingOpt = yamlCfg["samplingOptions"];
+        if (samplingOpt && repetitionPenalty == 1.0f) {
+            repetitionPenalty = samplingOpt["repetitionPenalty"]
+                ? samplingOpt["repetitionPenalty"].as<float>() : 1.0f;
+        }
+    }
+    if (repetitionPenalty > 1.0f) {
+        LOG(INFO) << "Repetition penalty: " << repetitionPenalty;
     }
 
     prompts = utils::readPromptFiles(promptPaths, onePromptPerLine);
@@ -607,7 +660,8 @@ int main(int argc, char* argv[]) {
             }
 
             auto [promptTokPerSec, genTokPerSec] = mllm_inference(
-                mllmRuntime, prompt, promptImagePaths, tokenizer, maxResponse, parsePromptTokens);
+                mllmRuntime, prompt, promptImagePaths, tokenizer, maxResponse, parsePromptTokens,
+                repetitionPenalty);
             allPromptTokPerSec += promptTokPerSec;
             allGenTokPerSec += genTokPerSec;
         }

@@ -98,9 +98,22 @@ struct LlmRuntimeOptions {
     } cacheEvictionOptions;
 };
 
+struct ClipPreprocessOptions {
+    std::string mode = "default";  // "default" (LLaVA) or "qwen_vl"
+    std::string resizeMode = "stretch";  // "stretch" (direct resize) or "padding" (aspect-ratio + black padding)
+    int imageWidth = 336;
+    int imageHeight = 336;
+    int patchSize = 14;
+    int temporalPatchSize = 2;
+    int mergeSize = 2;
+    float mean[3] = {0.48145466f, 0.4578275f, 0.40821073f};  // OpenAI CLIP RGB
+    float std[3] = {0.26862954f, 0.26130258f, 0.27577711f};   // OpenAI CLIP RGB
+};
+
 struct LlavaRuntimeOptions : public LlmRuntimeOptions {
     FileSource clipFile;
     FileSource patchEmbFile;
+    ClipPreprocessOptions clipPreprocess;
 };
 
 // clang-format on

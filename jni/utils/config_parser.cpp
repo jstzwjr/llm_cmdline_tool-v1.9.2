@@ -394,6 +394,27 @@ void LlavaYamlConfigParser::parseRuntimeOptions(LlmRuntimeOptions& runtimeOption
     llavaRuntimeOptions.clipFile = clipPathYaml.as<std::string>();
 
     llavaRuntimeOptions.patchEmbFile = tryParse<std::string>(clipPatchEmbYaml);
+
+    // Parse optional clipPreprocess config (backward-compatible: absent = LLaVA defaults)
+    const auto& preprocYaml = runtimeOptYaml["clipPreprocess"];
+    if (preprocYaml) {
+        auto& pp = llavaRuntimeOptions.clipPreprocess;
+        if (preprocYaml["mode"]) pp.mode = preprocYaml["mode"].as<std::string>();
+        if (preprocYaml["resizeMode"]) pp.resizeMode = preprocYaml["resizeMode"].as<std::string>();
+        if (preprocYaml["imageWidth"]) pp.imageWidth = preprocYaml["imageWidth"].as<int>();
+        if (preprocYaml["imageHeight"]) pp.imageHeight = preprocYaml["imageHeight"].as<int>();
+        if (preprocYaml["patchSize"]) pp.patchSize = preprocYaml["patchSize"].as<int>();
+        if (preprocYaml["temporalPatchSize"]) pp.temporalPatchSize = preprocYaml["temporalPatchSize"].as<int>();
+        if (preprocYaml["mergeSize"]) pp.mergeSize = preprocYaml["mergeSize"].as<int>();
+        if (preprocYaml["mean"]) {
+            auto m = preprocYaml["mean"];
+            for (int j = 0; j < 3 && j < (int)m.size(); j++) pp.mean[j] = m[j].as<float>();
+        }
+        if (preprocYaml["std"]) {
+            auto s = preprocYaml["std"];
+            for (int j = 0; j < 3 && j < (int)s.size(); j++) pp.std[j] = s[j].as<float>();
+        }
+    }
 }
 
 } // namespace utils

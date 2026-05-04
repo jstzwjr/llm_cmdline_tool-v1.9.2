@@ -14,5 +14,5 @@ define MAKE_EXECUTABLE
 endef
 
 # Build the below executable files
-FILES := main_llava main_llava_spec_dec
+FILES := main_llava main_llava_spec_dec main_mmbench
 $(foreach item,$(FILES),$(eval $(call MAKE_EXECUTABLE,$(item))))

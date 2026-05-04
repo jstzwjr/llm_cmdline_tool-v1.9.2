@@ -3,6 +3,7 @@
 #include "common/file_mem_mapper.h"
 #include "embedding_producer.h"
 #include "executor/llm_executor.h"
+#include "common/timer.h"
 #include "llm_runtime/macros.h"
 #include "llm_runtime/utils.h"
 
@@ -101,10 +102,16 @@ void* MllmRuntime::consumePrompt(const Tokens& tokens,
         return 0UL;
     };
 
+    Timer __wjr_llmRunTimer;
+    Timer __wjr_fillTimer;
+    double __wjr_llmRunTotal = 0.0;
+    double __wjr_fillTotal = 0.0;
+    size_t __wjr_batchIdx = 0;
     while (hasProducer()) {
         // Fill modelTokenSize number of embeddings, or break if no embedding left to consume
         const auto leftPadSize = getLeftPadding();
         size_t demandRemain = modelTokenSize - leftPadSize;
+        __wjr_fillTimer.start();
         while (demandRemain > 0 && hasProducer()) {
             const auto numProduced = (*curEmbProdIt)->produceEmbedding(demandRemain);
             DCHECK_LE(numProduced, demandRemain);
@@ -113,11 +120,20 @@ void* MllmRuntime::consumePrompt(const Tokens& tokens,
                 ++curEmbProdIt; // Move to the next producer
             }
         }
+        const double __wjr_fill = __wjr_fillTimer.reset();
+        __wjr_fillTotal += __wjr_fill;
         // Only the last prompt step needs logits
         const auto logitsKind = hasProducer() ? LogitsKind::NONE : outputKind;
         const auto rightPadSize = demandRemain;
+        __wjr_llmRunTimer.start();
         logitsBuffer = run(nullptr, leftPadSize, rightPadSize, logitsKind);
+        const double __wjr_dur = __wjr_llmRunTimer.reset();
+        __wjr_llmRunTotal += __wjr_dur;
+        LOG(INFO) << "[WJR] LLM batch " << __wjr_batchIdx << " run() took " << __wjr_dur*1000 << " ms (fill " << __wjr_fill*1000 << " ms)";
+        __wjr_batchIdx++;
     }
+    LOG(INFO) << "[WJR] Total LLM run() time: " << __wjr_llmRunTotal << " s over " << __wjr_batchIdx << " batches (avg " << (__wjr_llmRunTotal*1000/std::max<size_t>(1,__wjr_batchIdx)) << " ms/batch)";
+    LOG(INFO) << "[WJR] Total fill time: " << __wjr_fillTotal*1000 << " ms";
     return logitsBuffer;
 }
 

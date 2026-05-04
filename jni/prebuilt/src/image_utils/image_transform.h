@@ -32,4 +32,19 @@ cv::Mat clip_preprocess(const void* imgBuffer, const size_t imgBufferSize, size_
                         const float* mean = kOpenAICLIPMean, const float* std = kOpenAICLIPStd,
                         cv::InterpolationFlags interpolation = cv::INTER_CUBIC);
 
+// Qwen-VL preprocessing: resize + temporal tile + patch reshape
+// resizeMode: "stretch" (direct resize) or "padding" (aspect-ratio preserve + black padding)
+// Output shape: [num_patches, patch_features] as float32
+cv::Mat qwen_vl_preprocess(const std::string& imgPath, size_t& outputSizeBytes,
+                           int imageWidth, int imageHeight,
+                           int patchSize, int temporalPatchSize, int mergeSize,
+                           const float* mean, const float* std,
+                           const std::string& resizeMode = "stretch");
+
+cv::Mat qwen_vl_preprocess(const void* imgBuffer, size_t imgBufferSize, size_t& outputSizeBytes,
+                           int imageWidth, int imageHeight,
+                           int patchSize, int temporalPatchSize, int mergeSize,
+                           const float* mean, const float* std,
+                           const std::string& resizeMode = "stretch");
+
 } // namespace mtk::image_utils

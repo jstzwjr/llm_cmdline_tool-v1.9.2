@@ -123,4 +123,110 @@ cv::Mat clip_preprocess(const void* imgBuffer, const size_t imgBufferSize, size_
     return image;
 }
 
+
+
+// Qwen-VL preprocessing implementation
+static cv::Mat qwen_vl_preprocess_impl(cv::Mat& image, size_t& outputSizeBytes,
+                                       int imageWidth, int imageHeight,
+                                       int patchSize, int temporalPatchSize, int mergeSize,
+                                       const float* mean, const float* std,
+                                       const std::string& resizeMode) {
+    cv::Mat imageRGB;
+    cv::cvtColor(image, imageRGB, cv::COLOR_BGR2RGB);
+    imageRGB.convertTo(imageRGB, CV_32F);
+
+    if (resizeMode == "padding") {
+        // Aspect-ratio preserving resize + center black padding
+        float scale = std::min((float)imageWidth / imageRGB.cols,
+                               (float)imageHeight / imageRGB.rows);
+        int newW = ((int)(imageRGB.cols * scale) / patchSize) * patchSize;
+        int newH = ((int)(imageRGB.rows * scale) / patchSize) * patchSize;
+        if (newW <= 0) newW = patchSize;
+        if (newH <= 0) newH = patchSize;
+        cv::resize(imageRGB, imageRGB, cv::Size(newW, newH), 0, 0, cv::INTER_CUBIC);
+        // Center pad to target size with black
+        cv::Mat padded(imageHeight, imageWidth, CV_32FC3, cv::Scalar(0, 0, 0));
+        int offsetX = (imageWidth - newW) / 2;
+        int offsetY = (imageHeight - newH) / 2;
+        imageRGB.copyTo(padded(cv::Rect(offsetX, offsetY, newW, newH)));
+        imageRGB = padded;
+    } else {
+        // Direct stretch resize (default)
+        cv::resize(imageRGB, imageRGB, cv::Size(imageWidth, imageHeight), 0, 0, cv::INTER_CUBIC);
+    }
+
+    imageRGB *= (1.0f / 255.0f);
+    const int rows = imageRGB.rows;
+    const int cols = imageRGB.cols;
+    cv::Mat img_mean(rows, cols, CV_32FC3, cv::Scalar(mean[0], mean[1], mean[2]));
+    cv::Mat img_std(rows, cols, CV_32FC3, cv::Scalar(std[0], std[1], std[2]));
+    imageRGB -= img_mean;
+    imageRGB /= img_std;
+
+    std::vector<cv::Mat> channels(3);
+    cv::split(imageRGB, channels);
+
+    const int H = imageHeight, W = imageWidth, C = 3;
+    const int T = temporalPatchSize, P = patchSize, M = mergeSize;
+    const int grid_h = H / P, grid_w = W / P;
+    const int num_patches = grid_h * grid_w;
+    const int patch_features = C * T * P * P;
+
+    cv::Mat output(num_patches, patch_features, CV_32F);
+    float* out_ptr = (float*)output.data;
+    std::vector<float*> ch_data(C);
+    for (int c = 0; c < C; c++) ch_data[c] = (float*)channels[c].data;
+
+    int patch_idx = 0;
+    for (int gh_blk = 0; gh_blk < grid_h / M; gh_blk++) {
+        for (int gw_blk = 0; gw_blk < grid_w / M; gw_blk++) {
+            for (int mh = 0; mh < M; mh++) {
+                for (int mw = 0; mw < M; mw++) {
+                    float* dst = out_ptr + patch_idx * patch_features;
+                    int feat_idx = 0;
+                    for (int c = 0; c < C; c++) {
+                        for (int t = 0; t < T; t++) {
+                            for (int ph = 0; ph < P; ph++) {
+                                for (int pw = 0; pw < P; pw++) {
+                                    int row = (gh_blk * M + mh) * P + ph;
+                                    int col = (gw_blk * M + mw) * P + pw;
+                                    dst[feat_idx++] = ch_data[c][row * W + col];
+                                }
+                            }
+                        }
+                    }
+                    patch_idx++;
+                }
+            }
+        }
+    }
+    outputSizeBytes = num_patches * patch_features * sizeof(float);
+    return output;
+}
+
+cv::Mat qwen_vl_preprocess(const std::string& imgPath, size_t& outputSizeBytes,
+                           int imageWidth, int imageHeight,
+                           int patchSize, int temporalPatchSize, int mergeSize,
+                           const float* mean, const float* std,
+                           const std::string& resizeMode) {
+    cv::Mat image = cv::imread(imgPath, cv::IMREAD_COLOR);
+    return qwen_vl_preprocess_impl(image, outputSizeBytes,
+                                   imageWidth, imageHeight,
+                                   patchSize, temporalPatchSize, mergeSize, mean, std,
+                                   resizeMode);
+}
+
+cv::Mat qwen_vl_preprocess(const void* imgBuffer, size_t imgBufferSize, size_t& outputSizeBytes,
+                           int imageWidth, int imageHeight,
+                           int patchSize, int temporalPatchSize, int mergeSize,
+                           const float* mean, const float* std,
+                           const std::string& resizeMode) {
+    cv::Mat image = cv::imdecode(
+        cv::Mat(1, imgBufferSize, CV_8UC1, const_cast<void*>(imgBuffer)), cv::IMREAD_COLOR);
+    return qwen_vl_preprocess_impl(image, outputSizeBytes,
+                                   imageWidth, imageHeight,
+                                   patchSize, temporalPatchSize, mergeSize, mean, std,
+                                   resizeMode);
+}
+
 } // namespace mtk::image_utils

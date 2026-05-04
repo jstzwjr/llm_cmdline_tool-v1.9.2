@@ -126,6 +126,9 @@ TokenType llm_digest_prompt(void* llmRuntime, const TokenizerUPtr& tokenizer,
 
     Timer promptTimer;
     promptTimer.start();
+    Timer __wjr_runTimer;
+    double __wjr_runTotal = 0.0;
+    size_t __wjr_batchIdx = 0;
     while (inputTokenIndex < inputTokenCount) {
         SET_DUMP_INDEX(inferenceStep++);
         LOG(DEBUG) << "Token position: " << inputTokenIndex << ": " << inputTokens[inputTokenIndex];
@@ -139,11 +142,17 @@ TokenType llm_digest_prompt(void* llmRuntime, const TokenizerUPtr& tokenizer,
 
         // Only the last prompt step needs logits
         const auto logitsKind = isLastPromptStep() ? LogitsKind::LAST : LogitsKind::NONE;
+        __wjr_runTimer.start();
         lastLogits = mtk_llm_inference_once(llmRuntime, curInputTokens, logitsKind);
+        const double __wjr_dur = __wjr_runTimer.reset();
+        __wjr_runTotal += __wjr_dur;
+        LOG(INFO) << "[WJR] LLM batch " << __wjr_batchIdx << " inference_once took " << __wjr_dur*1000 << " ms (numNewTok=" << numNewTok << ")";
+        __wjr_batchIdx++;
 
         inputTokenIndex += numNewTok;
     }
     double promptTimeTaken = promptTimer.reset();
+    LOG(INFO) << "[WJR] Total LLM inference_once time: " << __wjr_runTotal << " s over " << __wjr_batchIdx << " batches (avg " << (__wjr_runTotal*1000/std::max<size_t>(1,__wjr_batchIdx)) << " ms/batch)";
 
     // Ideal prompt size is a multiple of prompt token batch size
     const size_t idealPromptSize =
