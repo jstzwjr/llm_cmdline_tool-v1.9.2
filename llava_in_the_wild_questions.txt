@@ -1,0 +1,60 @@
+What is the name of this famous sight in the photo?
+Describe this photo in detail.
+What are the possible reasons of the formation of this sight?
+Compose an engaging travel blog post about a recent trip to this place, highlighting cultural experiences and must-see attractions, including both the attraction seen in the photo and other must-see attractions as well.
+What type of fruit is this?
+How many uncut fruits are in the image?
+Describe this photo in detail.
+Imagine the fragrance of the fruits in the image. How would you describe this to someone who has never had this fruit before?
+Describe this photo in detail.
+What might be the intended effect of this painting?
+Discuss how this creative twist on a classic work of art might be interpreted differently by various audiences.
+What is the name of the man in the photo?
+Which iconic movie scene is being parodied in the meme?
+How does this meme reflect or comment on Elon Musk's public image, personality, or actions?
+Please explain the meme in detail.
+In what other ways might someone express the same sentiment that this meme is expressing?
+Do you know who paint this?
+Describe this painting in detail.
+Discuss the historical impact and the significance of this painting in the art world.
+Describe this photo in detail.
+What's the best weather, season, time of the day of visiting this place?  Is the time when this photo was taken a good time to visit this place?
+What is the name of the character in the image?
+What's the personality of this character? Explain what elements or aspects of the character's design may have contributed to its popularity.
+What are the things I should be cautious about when I visit here?
+If you were a photographer looking to capture this location's essence, what time of day and weather conditions would you choose? Describe the reasons behind your choice.
+Describe this photo in detail.
+What is unusual about this image?
+What fruit is in the left part of the fridge?
+What is the brand of the yogurt flavored with blueberry?
+Is there any strawberry-flavored yogurt in the fridge?
+Describe this photo in detail.
+What are the meals that I can cook with these?
+How many coffee mugs are in the set?
+Write an attractive product description for this.
+Show the detailed recipe for this dish.
+Can you explain this meme in detail?
+What are the two machine learning concepts mentioned in the meme?
+Give a detailed description of this meme.
+Can you explain why this is funny. Think about it step-by-step.
+Give a detailed description of this image.  Describe it panel by panel.
+What is funny about this image? Describe it panel by panel.
+What material appears to make up the creature?
+This is the logo of LLaVA, Large Language and Vision Assistant, based on the LLaMA architecture. Please explain this logo in detail, and how do you think of its design.
+What are the animals in the painting and what are they doing?
+Write a fairy tale based on this painting.
+Describe this sketch in detail.
+Write brief HTML/JS to turn this mock-up into a colorful website, where the jokes are replaced by two real jokes.
+Describe this sketch in detail.
+Write brief HTML/JS to turn this mock-up into a colorful and interactive website, where the joke is replaced by a real joke.
+What's the ending of this movie?
+What is the significance of this scene in the context of the movie?
+What's the name of the restaurant serving these dishes?
+Describe this photo in detail.
+If someone were to recommend a new flavor or topping to the dish, describe the reason for this change and how it might alter the overall taste.
+What brand is featured in this advertisement?
+Describe this photo in detail.
+Show me a detailed recipe for cooking this at home.
+Describe this photo in detail.
+What is the problem this city might be facing? What are some possible solutions?
+Explain all the cues that indicate the current traffic conditions.

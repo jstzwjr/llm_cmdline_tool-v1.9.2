@@ -8,4 +8,4 @@
   - New prebuilt headers under `jni/prebuilt/include/` (`medusa_config.h`, `mtk_llm.h`, `mtk_llm_options.h`, `mtk_llm_types.h`, `mtk_mllm.h`, `tokenizer/`).
   - New prebuilt shared libs under `jni/prebuilt/` (`libcommon.so`, `libmtk_llm.so`, `libmtk_mllm.so`, `libopencv_java4.so`, `libtokenizer.so`).
   - Updates to `jni/main/Android_mllm.mk`, `jni/main/main.cpp`, `jni/main/main_llava.cpp`, `jni/prebuilt/src/image_utils/image_transform.{cpp,h}`, `jni/prebuilt/src/llm_runtime/{llava_mllm_runtime.cpp,mllm_runtime.cpp}`, `jni/prebuilt/src/mtk_llm_options.h`, `jni/utils/config_parser.cpp`.
-  - Drop unused `jni/prebuilt/src/llm_runtime/llava_mllm_runtime.h`, `llava_in_the_wild_images.txt`, `llava_in_the_wild_questions.txt`.
+- Restore `jni/prebuilt/src/llm_runtime/llava_mllm_runtime.h` and `llava_in_the_wild_{images,questions}.txt` that were mistakenly removed by an earlier `rsync --delete` sync. The header is still `#include`d by `mtk_mllm.cpp` and `llava_mllm_runtime.cpp` — the embedded copy under `mtk_qwen3-vl/` was simply missing it.
