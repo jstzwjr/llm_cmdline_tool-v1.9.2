@@ -56,7 +56,11 @@ public:
 
         // Cache Eviction
         Attention,
-        SinkRotEmb
+        SinkRotEmb,
+
+        // Phase 3.4 (deepstack): per-(layer-receiving-injection) ds_padded inputs.
+        // Count is set via setDeepstackInputCount() before initialize(); 0 = no deepstack.
+        Deepstack,
     };
 
 private:
@@ -116,6 +120,17 @@ public:
     // Hot-swap to model with tokenSize and cacheSize if available.
     // Returns true if swap successfully, false if otherwise.
     bool hotSwapModel(const size_t tokenSize, const size_t cacheSize = kUnusedSize);
+
+    // Phase 3.4 (deepstack): set the number of trailing deepstack inputs the model
+    // expects (0 = no deepstack). Must be called BEFORE initialize() so that
+    // defineIOs() can size the IO table correctly. For Qwen3-VL = 3.
+    void setDeepstackInputCount(const size_t n) { mDeepstackInputCount = n; }
+    size_t getDeepstackInputCount() const { return mDeepstackInputCount; }
+    // Returns the absolute input indices of the 3 ds_padded ports (indices
+    // [actualNumInputs - mDeepstackInputCount, actualNumInputs)).
+    std::vector<size_t> getDeepstackInputIndexes() const {
+        return getInputIndexes(IOKind::Deepstack);
+    }
 
     // Get the next available larger cache size given a token size.
     // Or return the smallest cache size if all cache sizes under given token size are smaller than
@@ -428,6 +443,9 @@ protected:
 
     std::unique_ptr<llm_helper::CacheEvictionAgent> mCacheEvictionAgent;
     static constexpr size_t kSinkRotEmbNumInputs = 4u;
+
+    // Phase 3.4 (deepstack): trailing deepstack input count (set via setter before init).
+    size_t mDeepstackInputCount = 0;
 
     // Self-defined positions
     std::vector<size_t> mTreePositions;

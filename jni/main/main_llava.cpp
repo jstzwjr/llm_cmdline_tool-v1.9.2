@@ -398,14 +398,21 @@ std::tuple<double, double> mllm_inference(void* mllmRuntime, const std::string& 
 
     double promptTimeTaken = promptTimer.reset();
 
+    // Subtract vision encoder time so prompt mode tok/s reflects LLM prefill speed only.
+    const double clipElapsedSec = mtk_mllm_get_last_clip_elapsed_seconds(mllmRuntime);
+    const double llmOnlyPromptSec = std::max(0.0, promptTimeTaken - clipElapsedSec);
+
     // Ideal prompt size is a multiple of prompt batch size
     const size_t idealPromptSize =
         std::ceil(float(numPromptToken) / promptTokenSize) * promptTokenSize;
     DCHECK_EQ(idealPromptSize % promptTokenSize, 0);
-    const auto promptTokPerSec = idealPromptSize / promptTimeTaken;
+    const auto promptTokPerSec =
+        (llmOnlyPromptSec > 0.0) ? (idealPromptSize / llmOnlyPromptSec) : 0.0;
 
     LOG(INFO) << "Done analyzing prompt (Total " << numPromptToken << " tokens) in "
-              << promptTimeTaken << "s" << " (" << promptTokPerSec << " tok/s)";
+              << promptTimeTaken << "s end-to-end (" << clipElapsedSec
+              << "s clip + " << llmOnlyPromptSec << "s llm-prefill)"
+              << " → llm-prefill " << promptTokPerSec << " tok/s";
 
     // Prompt mode ended, take the output and feed as input
     // Dump first token logits for alignment debug

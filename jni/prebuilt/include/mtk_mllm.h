@@ -39,3 +39,8 @@ void mtk_mllm_reset(void* runtime, const bool resetCache = true);
 void mtk_mllm_release(void* runtime);
 
 size_t mtk_mllm_get_per_token_logits_size(void* runtime);
+
+// Returns the total seconds spent inside vision encoder (preprocess + patch emb + CLIP DLA)
+// during the most recent mtk_mllm_consume_prompt call. Subtract this from end-to-end prompt
+// time so that "prompt mode tok/s" reflects LLM prefill speed only (not vision encoder).
+double mtk_mllm_get_last_clip_elapsed_seconds(void* runtime);

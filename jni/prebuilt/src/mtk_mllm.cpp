@@ -45,6 +45,11 @@ size_t LLM_API mtk_mllm_get_per_token_logits_size(void* runtime) {
     return llavaRuntime->getPerTokenLogitsSize();
 }
 
+double LLM_API mtk_mllm_get_last_clip_elapsed_seconds(void* runtime) {
+    auto llavaRuntime = reinterpret_cast<mtk::LlavaRuntime*>(runtime);
+    return llavaRuntime->getLastClipElapsedSeconds();
+}
+
 void* LLM_API mtk_mllm_consume_prompt(void* runtime, const std::vector<TokenType>& tokens,
                                       const std::vector<std::string>& imagePaths,
                                       size_t* numPromptToken, const LogitsKind outputKind) {

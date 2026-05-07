@@ -56,6 +56,46 @@ public:
 
     virtual bool isLeftPadAllowed() const override;
 
+    // Phase 3.2 (deepstack): per-token mask over the EXPANDED prompt sequence.
+    // 1 = image_pad token (target of deepstack scatter), 0 = other.
+    // Built at start of consumePrompt(); read by run() to scatter ds_padded per batch.
+    const std::vector<int8_t>& getVisualPosMasks() const { return mVisualPosMasks; }
+    void clearVisualPosMasks() { mVisualPosMasks.clear(); }
+
+    // CLIP timing accumulator. consumePrompt resets it; getImageEmbedding adds to it.
+    // Used by callers to subtract encoder time from end-to-end prompt latency so that
+    // "prompt mode tok/s" reflects LLM prefill speed only (not vision encoder).
+    double getLastClipElapsedSeconds() const { return mLastClipElapsedSeconds; }
+    void resetClipElapsedSeconds() { mLastClipElapsedSeconds = 0.0; }
+    void addClipElapsedSeconds(const double sec) { mLastClipElapsedSeconds += sec; }
+
+    // Phase 3.3 (deepstack): backend hooks subclass overrides to expose deepstack
+    // embeddings cached by the vision encoder forward. Default: no deepstack.
+    virtual void* getDeepstackEmbedding(const size_t idx) const { return nullptr; }
+    virtual size_t getDeepstackEmbeddingSize(const size_t idx) const { return 0; }
+    virtual size_t getNumDeepstackEmbeddings() const { return 0; }
+
+    // Phase 3.3: per-batch ds_padded buffers built by prepareDeepstackBuffersForBatch.
+    // Layout: mDeepstackPaddedBuffers[k] is a flat byte buffer of
+    //         modelTokenSize * hiddenSizeBytes; k indexes which deepstack embed (0..N-1).
+    // Lifetime: rebuilt for each batch inside consumePrompt's main loop.
+    const std::vector<std::vector<uint8_t>>& getDeepstackPaddedBuffers() const {
+        return mDeepstackPaddedBuffers;
+    }
+
+protected:
+    std::vector<int8_t> mVisualPosMasks;
+    std::vector<std::vector<uint8_t>> mDeepstackPaddedBuffers;
+    // CLIP elapsed seconds across all images consumed in the most recent consumePrompt.
+    double mLastClipElapsedSeconds = 0.0;
+
+    // Phase 3.3: scatter the cached deepstack embeddings into ds_padded buffers shaped
+    // [modelTokenSize, hiddenSizeBytes], with image_pad positions in the current batch
+    // filled and all other positions (including left-pad zone) zero.
+    void prepareDeepstackBuffersForBatch(size_t batchStart, size_t batchEnd,
+                                          size_t leftPad, size_t modelTokenSize,
+                                          size_t hiddenSizeBytes);
+
 protected:
     Tokenizer::TokenType getImagePlaceholderToken() const noexcept {
         DCHECK(mImagePlaceholderToken.has_value()) << "Image placeholder token is not yet set.";

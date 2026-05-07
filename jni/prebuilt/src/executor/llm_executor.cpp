@@ -92,6 +92,14 @@ void LlmExecutor::defineIOs() {
     defineInput(IOKind::KVCache, kCacheCount);
     defineInput(IOKind::Lora, kLoraInputCount);
     defineInput(IOKind::SharedWeights, numSharedWeightsUsed());
+    // Phase 3.4 (deepstack): trailing ds_padded inputs (count set externally via
+    // setDeepstackInputCount before initialize). Must be defined LAST because the
+    // PTQ-merged DLA places these tensors at the end of the input list.
+    if (mDeepstackInputCount > 0) {
+        defineInput(IOKind::Deepstack, mDeepstackInputCount);
+        LOG(INFO) << "[deepstack] LlmExecutor defined " << mDeepstackInputCount
+                  << " ds_padded inputs (trailing).";
+    }
 
     // Define output order
     defineOutput(IOKind::Logits);

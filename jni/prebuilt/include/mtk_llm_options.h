@@ -114,6 +114,11 @@ struct LlavaRuntimeOptions : public LlmRuntimeOptions {
     FileSource clipFile;
     FileSource patchEmbFile;
     ClipPreprocessOptions clipPreprocess;
+
+    // Phase 3.1 (deepstack): when true, treat the encoder DLA as the Qwen3-VL
+    // multi-output variant (1 main + 6 extras; last 3 are projector deepstack embeds).
+    // Default false → existing single-output encoder behavior unchanged.
+    bool clipUseDeepstack = false;
 };
 
 // clang-format on

@@ -415,6 +415,14 @@ void LlavaYamlConfigParser::parseRuntimeOptions(LlmRuntimeOptions& runtimeOption
             for (int j = 0; j < 3 && j < (int)s.size(); j++) pp.std[j] = s[j].as<float>();
         }
     }
+
+    // Phase 3.5 (deepstack): optional yaml flag enabling Qwen3-VL multi-output encoder.
+    // Default false → unchanged behavior for non-deepstack models.
+    const auto& clipUseDeepstackYaml = runtimeOptYaml["clipUseDeepstack"];
+    if (clipUseDeepstackYaml) {
+        llavaRuntimeOptions.clipUseDeepstack = clipUseDeepstackYaml.as<bool>();
+        LOG(INFO) << "[deepstack] clipUseDeepstack=" << llavaRuntimeOptions.clipUseDeepstack;
+    }
 }
 
 } // namespace utils

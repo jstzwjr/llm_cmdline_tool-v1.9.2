@@ -187,7 +187,30 @@ bool LlavaRuntime::initialize(const LlmModelOptions& modelOptions,
         LOG(DEBUG) << "Loading CLIP DLA: " << runtimeOptions.clipFile;
         mClipExecutor = std::make_unique<ClipEmbDlaExecutor>(runtimeOptions.clipFile);
         mClipExecutor->setNumInputs(1);
-        mClipExecutor->setNumOutputs(1);
+
+        // Phase 3.1 (deepstack): Qwen3-VL encoder DLA has 7 outputs:
+        //   [0]       main image embedding (always used)
+        //   [1..3]    raw deepstack tap (currently emitted by shape_fixer but unused
+        //             — they're already consumed inside the projector internally;
+        //             a future cleanup will remove them, see report 2026-05-07.)
+        //   [4..6]    projector deepstack embeddings #0/#1/#2 (LLM-dim, ready to scatter)
+        // For non-deepstack models (single-output encoder), the count stays at 1.
+        // TODO: read this from yaml config or detect from DLA metadata. For now hardcode.
+        constexpr size_t kClipNumOutputsWithDeepstack = 7;
+        constexpr size_t kClipNumOutputsLegacy = 1;
+        const size_t numClipOutputs =
+            runtimeOptions.clipUseDeepstack ? kClipNumOutputsWithDeepstack : kClipNumOutputsLegacy;
+        mClipExecutor->setNumOutputs(numClipOutputs);
+        if (runtimeOptions.clipUseDeepstack) {
+            // Output indices that carry the projector deepstack embeddings (LLM-dim).
+            mDeepstackOutputIndices = {4, 5, 6};
+            LOG(INFO) << "[deepstack] CLIP DLA configured for "
+                      << numClipOutputs << " outputs; "
+                      << mDeepstackOutputIndices.size() << " deepstack embeddings will be cached.";
+        } else {
+            mDeepstackOutputIndices.clear();
+        }
+
         if (!patchEmbFile.empty()) {
             mClipPatchEmbExecutor = std::make_unique<PatchEmbTfliteExecutor>(patchEmbFile);
             mClipPatchEmbExecutor->initialize();
@@ -198,6 +221,19 @@ bool LlavaRuntime::initialize(const LlmModelOptions& modelOptions,
 
         LOG(DEBUG) << "Initialized CLIP DLA";
     };
+
+    // Phase 3.4 (deepstack): tell each LLM executor how many trailing ds_padded inputs
+    // its DLA expects. For Qwen3-VL (merged single LLM DLA holding all 36 chunks), the
+    // first executor carries all 3 ds_padded ports; for legacy multi-DLA setups, only
+    // the first 3 chunks would each carry 1 ds_padded port. Until we have a robust
+    // discovery path we hardcode the merged-DLA layout, which matches our actual
+    // assets_*/ output. Must run BEFORE initExecutor so defineIOs sees the count.
+    if (runtimeOptions.clipUseDeepstack && !mLlmDlaExecutors.empty()) {
+        constexpr size_t kQwen3VlDeepstackPortCount = 3;
+        mLlmDlaExecutors[0]->setDeepstackInputCount(kQwen3VlDeepstackPortCount);
+        LOG(INFO) << "[deepstack] declared " << kQwen3VlDeepstackPortCount
+                  << " trailing ds_padded inputs on LLM executor[0].";
+    }
 
     for (size_t chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
         // Initialize after reserving the input buffer so that the buffer allocator doesn't need to
@@ -264,14 +300,17 @@ void* LlavaRuntime::getImageEmbedding(const void* buffer, const size_t size) {
     } else {
         image = clip_preprocess(buffer, size, imageSizeBytes, kImgSize, kCropSize, kScale);
     }
-    LOG(INFO) << "[WJR] image preprocess took: " << __wjr_ppTimer.reset()*1000 << " ms";
+    const double __wjr_pp_sec = __wjr_ppTimer.reset();
+    LOG(INFO) << "[WJR] image preprocess took: " << __wjr_pp_sec*1000 << " ms";
 
     // Assume image is already preprocessed
+    double __wjr_patch_sec = 0.0;
     if (mClipPatchEmbExecutor) {
         Timer patchEmbTimer;
         patchEmbTimer.start();
         mClipPatchEmbExecutor->runInference(image.data, imageSizeBytes);
-        LOG(INFO) << "Patch embedding takes: " << patchEmbTimer.reset() << "s";
+        __wjr_patch_sec = patchEmbTimer.reset();
+        LOG(INFO) << "Patch embedding takes: " << __wjr_patch_sec << "s";
     } else {
         mClipExecutor->setModelInput(image.data, imageSizeBytes);
     }
@@ -282,18 +321,54 @@ void* LlavaRuntime::getImageEmbedding(const void* buffer, const size_t size) {
     Timer clipDLATimer;
     clipDLATimer.start();
     mClipExecutor->runInference();
-    LOG(INFO) << "Done CLIP dla inference in: " << clipDLATimer.reset() << "s";
-    const auto clipEmbBuffer = mClipExecutor->getOutputBuffer();
+    const double __wjr_clip_sec = clipDLATimer.reset();
+    LOG(INFO) << "Done CLIP dla inference in: " << __wjr_clip_sec << "s";
+    // Accumulate vision-side time so callers can subtract it from end-to-end prompt
+    // latency to get LLM-only prefill tok/s.
+    addClipElapsedSeconds(__wjr_pp_sec + __wjr_patch_sec + __wjr_clip_sec);
+
+    const auto clipEmbBuffer = mClipExecutor->getOutputBuffer(0);
 
     // Dump encoder DLA output for alignment debug
-    const size_t clipOutputSize = mClipExecutor->getModelOutputSizeBytes();
+    const size_t clipOutputSize = mClipExecutor->getModelOutputSizeBytes(0);
     DUMP(INPUTS).fromBinary("encoder_output", clipEmbBuffer, clipOutputSize);
+
+    // Phase 3.1 (deepstack): cache deepstack embeddings from the configured output
+    // indices so callers (mllm_runtime::consumePrompt) can read them after this returns.
+    mDeepstackEmbeddings.clear();
+    mDeepstackEmbeddingSizes.clear();
+    for (const auto outIdx : mDeepstackOutputIndices) {
+        void* dsBuf = mClipExecutor->getOutputBuffer(outIdx);
+        const size_t dsSize = mClipExecutor->getModelOutputSizeBytes(outIdx);
+        mDeepstackEmbeddings.push_back(dsBuf);
+        mDeepstackEmbeddingSizes.push_back(dsSize);
+        DUMP(INPUTS).fromBinary("deepstack_embed_" + std::to_string(outIdx), dsBuf, dsSize);
+    }
+    if (!mDeepstackOutputIndices.empty()) {
+        LOG(INFO) << "[deepstack] cached " << mDeepstackEmbeddings.size()
+                  << " deepstack embeds; first size=" << mDeepstackEmbeddingSizes.front()
+                  << " bytes";
+    }
 
     return clipEmbBuffer;
 }
 
 size_t LlavaRuntime::getImageEmbeddingSize() const {
-    return mClipExecutor->getModelOutputSizeBytes();
+    return mClipExecutor->getModelOutputSizeBytes(0);
+}
+
+void* LlavaRuntime::getDeepstackEmbedding(const size_t idx) const {
+    DCHECK_LT(idx, mDeepstackEmbeddings.size())
+        << "Deepstack embedding index out of range: " << idx
+        << " (have " << mDeepstackEmbeddings.size() << ")";
+    return mDeepstackEmbeddings[idx];
+}
+
+size_t LlavaRuntime::getDeepstackEmbeddingSize(const size_t idx) const {
+    DCHECK_LT(idx, mDeepstackEmbeddingSizes.size())
+        << "Deepstack embedding size index out of range: " << idx
+        << " (have " << mDeepstackEmbeddingSizes.size() << ")";
+    return mDeepstackEmbeddingSizes[idx];
 }
 
 } // namespace mtk
