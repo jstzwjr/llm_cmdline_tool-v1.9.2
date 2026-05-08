@@ -210,6 +210,19 @@ std::string addPreformatter_VicunaNoInput(const std::string& prompt);
 std::string addPreformatter_QwenNoInput(const std::string& prompt);
 std::string addPreformatter_Qwen3NoInput(const std::string& prompt);
 std::string addPreformatter_Qwen3NoInputNoThink(const std::string& prompt);
+std::string addPreformatter_Qwen3VLNoInput(const std::string& prompt);
+
+// 视觉占位符样式。控制 prompt 中的 "<image>" 在送入 tokenizer 前如何包裹。
+// - "bare"：不变（LLaVA / Qwen2-VL / 默认行为）。
+// - "qwen3vl"：把每个 "<image>" 替换为 "<|vision_start|><image><|vision_end|>"，
+//   与 HF Qwen3-VL 训练时的 chat 模板对齐。<image> 仍保留以便下游 tokenize_with_image
+//   把它转成 kImagePlaceholderToken。
+// 未识别的 style 视为 bare。
+std::string applyImageStyle(const std::string& prompt, const std::string& style);
+
+// 根据 preformatter 名推导默认 image style。新增 VL 类 preformatter 时在此加映射。
+// 未映射的 preformatter（含纯文本类）一律返回 "bare"。
+std::string defaultImageStyleFor(const std::string& preformatterName);
 std::string addPreformatter_Llama3NoInput(const std::string& prompt);
 std::string addPreformatter_Phi3NoInput(const std::string& prompt);
 std::string addPreformatter_MinicpmNoInput(const std::string& prompt);

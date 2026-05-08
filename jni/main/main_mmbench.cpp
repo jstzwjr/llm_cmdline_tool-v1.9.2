@@ -163,7 +163,14 @@ int main(int argc, char* argv[]) {
     std::string yamlConfigPath;
     std::string inputTsvPath;
     std::string outputPath;
+    // 默认 QwenNoInput（向后兼容历史 79.50% baseline）。
+    // Qwen3-VL 应在调用时显式 --preformatter Qwen3VLNoInput --image-style qwen3vl
+    // 启用与 HF 训练模板完全对齐的版本（详见 utils.cpp:addPreformatter_Qwen3VLNoInput）。
     std::string preformatterName = "QwenNoInput";
+    // 默认空字符串。CLI 解析完后，若仍为空则按 preformatter 名自动派生
+    // （详见 utils::defaultImageStyleFor）：Qwen3VLNoInput→qwen3vl，其他→bare。
+    // 用户可显式 --image-style xxx 覆盖（用于消融/调试）。
+    std::string imageStyle = "";
     int progressEvery = 50;
 
     using utils::matchArgument;
@@ -178,6 +185,9 @@ int main(int argc, char* argv[]) {
         } else if (matchArgument(curArg, "--preformatter", "-pref")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             preformatterName = argv[++i];
+        } else if (matchArgument(curArg, "--image-style")) {
+            ENSURE_NEXT_ARG_EXISTS(i)
+            imageStyle = argv[++i];
         } else if (matchArgument(curArg, "--progress")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             progressEvery = std::atoi(argv[++i]);
@@ -190,8 +200,18 @@ int main(int argc, char* argv[]) {
 
     if (yamlConfigPath.empty() || inputTsvPath.empty()) {
         std::cerr << "Usage: main_mmbench <config.yaml> -i <input.tsv> [-o <output.tsv>] "
-                  << "[--preformatter QwenNoInput] [--progress 50]" << std::endl;
+                  << "[--preformatter QwenNoInput] [--image-style bare|qwen3vl] "
+                  << "[--progress 50]" << std::endl;
         return 1;
+    }
+
+    // image-style 未显式指定则按 preformatter 名自动派生（Qwen3VLNoInput→qwen3vl，其他→bare）。
+    if (imageStyle.empty()) {
+        imageStyle = utils::defaultImageStyleFor(preformatterName);
+        LOG(INFO) << "image-style auto-derived from preformatter '" << preformatterName
+                  << "' -> '" << imageStyle << "'";
+    } else {
+        LOG(INFO) << "image-style explicitly set to '" << imageStyle << "'";
     }
 
     // 解析 yaml
@@ -262,8 +282,21 @@ int main(int argc, char* argv[]) {
         const std::string& letters = fields[3];
         const std::string gt = (fields.size() >= 5) ? fields[4] : std::string();
 
-        // 在最前面插入 <image>，再套 chat 模板
-        std::string prompt = std::string("<image>\n") + promptRaw;
+        // 在最前面插入 <image>，再套 chat 模板。
+        // <image> 是占位符，在下游 tokenize_with_image 中被替换为 kImagePlaceholderToken，
+        // 再于 prefill 时展开为 N 个 image_pad 槽。
+        // 不同 VL 模型对图像的包裹方式不同（bare / qwen3vl 等），通过 imageStyle 控制：
+        //   - "bare"：插入 "<image>\n" + prompt（LLaVA 类，向后兼容历史 79.50% baseline）。
+        //   - "qwen3vl"：插入 "<|vision_start|><image><|vision_end|>" + prompt（无 \n，
+        //                与 HF Qwen3-VL 训练 chat 模板字节级对齐：vision_end 紧贴 prompt）。
+        // 故意按 style 直接拼最终格式，不走"bare→applyImageStyle 改写"的路径，避免
+        // \n 残留破坏 vision_end 与 prompt 的紧贴关系。
+        std::string prompt;
+        if (imageStyle == "qwen3vl") {
+            prompt = std::string("<|vision_start|><image><|vision_end|>") + promptRaw;
+        } else {
+            prompt = std::string("<image>\n") + promptRaw;
+        }
         if (!preformatterName.empty()) {
             if (!utils::addPreformatter(preformatterName, prompt)) {
                 LOG(ERROR) << "Invalid preformatter: " << preformatterName;

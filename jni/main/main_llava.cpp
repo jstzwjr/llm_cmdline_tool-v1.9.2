@@ -552,6 +552,10 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> prompts;
     std::string defaultPrompt = "Show me a detailed recipe for cooking this at home.";
     std::string preformatterName = "VicunaNoInput";
+    // 图像占位符样式。默认空，CLI 解析后按 preformatter 名自动派生
+    // （Qwen3VLNoInput→qwen3vl，其他→bare）。详见 utils::defaultImageStyleFor。
+    // 显式 --image-style xxx 可强制覆盖（消融/调试）。
+    std::string imageStyle = "";
     float repetitionPenalty = 1.0f; // 1.0 = disabled
 
     // Treat each line in prompt text as a single prompt.
@@ -595,6 +599,9 @@ int main(int argc, char* argv[]) {
         } else if (matchArgument(curArg, "--preformatter", "-pref")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             preformatterName = argv[++i];
+        } else if (matchArgument(curArg, "--image-style")) {
+            ENSURE_NEXT_ARG_EXISTS(i)
+            imageStyle = argv[++i];
         } else if (matchArgument(curArg, "--rep-penalty")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             repetitionPenalty = std::atof(argv[++i]);
@@ -616,6 +623,15 @@ int main(int argc, char* argv[]) {
         LOG(INFO) << "Repetition penalty: " << repetitionPenalty;
     }
 
+    // image-style 未显式指定则按 preformatter 名自动派生（Qwen3VLNoInput→qwen3vl，其他→bare）。
+    if (imageStyle.empty()) {
+        imageStyle = utils::defaultImageStyleFor(preformatterName);
+        LOG(INFO) << "image-style auto-derived from preformatter '" << preformatterName
+                  << "' -> '" << imageStyle << "'";
+    } else {
+        LOG(INFO) << "image-style explicitly set to '" << imageStyle << "'";
+    }
+
     prompts = utils::readPromptFiles(promptPaths, onePromptPerLine);
 
     // When --one-prompt-per-line is used, treat each image path as a text file containing a list of
@@ -632,10 +648,14 @@ int main(int argc, char* argv[]) {
 
     bool isMultimodalMode = !imagePaths[0].empty();
 
-    // Insert <image> token
+    // 自动在 prompt 开头插入 <image>（占位符，下游 tokenize 时被替换为 image_pad token）。
+    // bare: "<image>\n"（兼容历史 LLaVA 行为）
+    // qwen3vl: "<image>"（无 \n，与 HF 训练 chat 模板字节级对齐：<|vision_end|> 紧贴 user text）
+    // 注：applyImageStyle 会把这里的 <image> 进一步包裹为 <|vision_start|><image><|vision_end|>。
     if (isMultimodalMode && !parsePromptTokens) {
+        const std::string imagePrefix = (imageStyle == "qwen3vl") ? "<image>" : "<image>\n";
         for (int i = 0; i < prompts.size(); i++) {
-            prompts[i].insert(0, "<image>\n");
+            prompts[i].insert(0, imagePrefix);
         }
     }
 
@@ -663,6 +683,18 @@ int main(int argc, char* argv[]) {
                     DUMP(PROMPT).fromString("text_preformatted", prompt);
                 } else {
                     LOG(ERROR) << "Invalid preformatter: '" << preformatterName << "'";
+                }
+            }
+            // 根据 --image-style 把 prompt 中的 "<image>" 包裹为模型期望的视觉模板。
+            // bare = 不变；qwen3vl = "<|vision_start|><image><|vision_end|>"。
+            // 必须在 preformatter 之后、tokenize 之前做，确保 vision_start/end 落在
+            // user message 内部，而不是 chat 模板包裹之外。
+            if (!parsePromptTokens) {
+                std::string wrapped = utils::applyImageStyle(prompt, imageStyle);
+                if (wrapped != prompt) {
+                    LOG(INFO) << "Applied image-style '" << imageStyle << "' to prompt";
+                    prompt = std::move(wrapped);
+                    DUMP(PROMPT).fromString("text_image_styled", prompt);
                 }
             }
 

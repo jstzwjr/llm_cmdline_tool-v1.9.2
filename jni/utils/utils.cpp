@@ -919,6 +919,7 @@ bool addPreformatter(const std::string& prefName, std::string& prompt) {
     DISPATCH(QwenNoInput)
     DISPATCH(Qwen3NoInput)
     DISPATCH(Qwen3NoInputNoThink)
+    DISPATCH(Qwen3VLNoInput)
     DISPATCH(Llama3NoInput)
     DISPATCH(Phi3NoInput)
     DISPATCH(MinicpmNoInput)
@@ -985,6 +986,46 @@ std::string addPreformatter_Qwen3NoInput(const std::string& prompt) {
     std::stringstream ss;
     ss << "<|im_start|>user\n" << prompt << "<|im_end|>\n<|im_start|>assistant\n<think>\n";
     return ss.str();
+}
+
+// Qwen3-VL chat template, aligned with HF/Python qwen3_preformatter.json:
+//   "<|im_start|>user\n{instruction}<|im_end|>\n<|im_start|>assistant\n"
+// 区别于 Qwen3NoInput*: 无 system 段，无 <think>...</think> 块。配合 --image-style qwen3vl
+// 把 prompt 中的 "<image>" 替换为 "<|vision_start|><image><|vision_end|>"，构成与
+// Qwen3-VL 训练时完全一致的 chat 模板。用于端侧 mmbench / VL 任务，不要用于纯文本 Qwen3。
+std::string addPreformatter_Qwen3VLNoInput(const std::string& prompt) {
+    std::stringstream ss;
+    ss << "<|im_start|>user\n" << prompt << "<|im_end|>\n<|im_start|>assistant\n";
+    return ss.str();
+}
+
+std::string applyImageStyle(const std::string& prompt, const std::string& style) {
+    if (style != "qwen3vl") {
+        return prompt; // "bare" 或未识别 style：原样返回
+    }
+    static const std::string kFrom = "<image>";
+    static const std::string kTo = "<|vision_start|><image><|vision_end|>";
+    std::string out;
+    out.reserve(prompt.size() + 64);
+    size_t pos = 0;
+    while (true) {
+        size_t found = prompt.find(kFrom, pos);
+        if (found == std::string::npos) {
+            out.append(prompt, pos, std::string::npos);
+            break;
+        }
+        out.append(prompt, pos, found - pos);
+        out.append(kTo);
+        pos = found + kFrom.size();
+    }
+    return out;
+}
+
+std::string defaultImageStyleFor(const std::string& preformatterName) {
+    if (preformatterName == "Qwen3VLNoInput") {
+        return "qwen3vl";
+    }
+    return "bare";
 }
 
 std::string addPreformatter_Llama3NoInput(const std::string& prompt) {

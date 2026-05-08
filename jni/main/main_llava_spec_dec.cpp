@@ -644,6 +644,9 @@ int main(int argc, char* argv[]) {
     bool onePromptPerLine = false;  // Treat each line in prompt text as a single prompt. Will
                                     // replace literal "\n" with new line char '\n'.
     std::string preformatterName = "";
+    // 图像占位符样式。默认空，CLI 解析后按 preformatter 名自动派生
+    // （Qwen3VLNoInput→qwen3vl，其他→bare）。详见 utils::defaultImageStyleFor。
+    std::string imageStyle = "";
     size_t draftLen = 0;
     float upperBound = 1.0;               // Threshold ~ U[0, upperBound]
     std::vector<std::string> promptPaths; // Paths containing the prompt text
@@ -705,6 +708,9 @@ int main(int argc, char* argv[]) {
         } else if (matchArgument(curArg, "--preformatter")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             preformatterName = argv[++i];
+        } else if (matchArgument(curArg, "--image-style")) {
+            ENSURE_NEXT_ARG_EXISTS(i)
+            imageStyle = argv[++i];
         } else if (matchArgument(curArg, "--upper-bound")) {
             ENSURE_NEXT_ARG_EXISTS(i)
             upperBound = std::atof(argv[++i]);
@@ -743,10 +749,19 @@ int main(int argc, char* argv[]) {
     bool isMultimodalMode = !imagePaths[0].empty();
     DCHECK_EQ(isMultimodalMode, true) << "Not multimodality mode";
 
-    // Insert <image> token
+    // image-style 未显式指定则按 preformatter 名自动派生（Qwen3VLNoInput→qwen3vl，其他→bare）。
+    if (imageStyle.empty()) {
+        imageStyle = utils::defaultImageStyleFor(preformatterName);
+        LOG(INFO) << "image-style auto-derived from preformatter '" << preformatterName
+                  << "' -> '" << imageStyle << "'";
+    }
+
+    // 自动在 prompt 开头插入 <image>（占位符，下游 tokenize 时被替换为 image_pad token）。
+    // bare: "<image>\n"（兼容历史）；qwen3vl: "<image>"（无 \n，HF 字节级对齐）。
     if (isMultimodalMode && !parsePromptTokens) {
+        const std::string imagePrefix = (imageStyle == "qwen3vl") ? "<image>" : "<image>\n";
         for (int i = 0; i < prompts.size(); i++) {
-            prompts[i].insert(0, "<image>\n");
+            prompts[i].insert(0, imagePrefix);
         }
     }
 
@@ -778,6 +793,15 @@ int main(int argc, char* argv[]) {
                 DUMP(PROMPT).fromString("text_preformatted", prompt);
             } else {
                 LOG(ERROR) << "Invalid preformatter: '" << preformatterName << "'";
+            }
+        }
+        // 在 preformatter 之后、tokenize 之前按 imageStyle 包裹 <image>。
+        if (!parsePromptTokens) {
+            std::string wrapped = utils::applyImageStyle(prompt, imageStyle);
+            if (wrapped != prompt) {
+                LOG(INFO) << "Applied image-style '" << imageStyle << "' to prompt";
+                prompt = std::move(wrapped);
+                DUMP(PROMPT).fromString("text_image_styled", prompt);
             }
         }
         switch (inferType) {
